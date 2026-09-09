@@ -24,6 +24,10 @@ function parseCommand(value: unknown): DeviceCommand {
     return { action: "ventilation.setLevel", value: body.value as VentilationLevel };
   }
 
+  if (body.action === "appliance.start") {
+    return { action: "appliance.start" };
+  }
+
   throw new Error("Unsupported or invalid command payload");
 }
 
