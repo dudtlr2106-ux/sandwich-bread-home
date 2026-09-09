@@ -27,9 +27,20 @@ const icon = {
   doorlock: "▣",
 } as const;
 
+function operationLabel(value?: string) {
+  if (!value) return "상태 확인 중";
+  return ({ ready: "준비", idle: "대기", running: "작동 중", run: "작동 중", paused: "일시정지", finished: "완료" } as Record<string, string>)[value] ?? value;
+}
+
 export default function DeviceCard({ device, busy, onCommand }: Props) {
   const [setpoint, setSetpoint] = useState(device.state.heatingSetpoint ?? 24);
   const isOn = device.state.switch === "on";
+  const hasApplianceStart = device.kind === "appliance" && (
+    device.capabilities.raw.includes("samsungce.washerOperatingState") ||
+    device.capabilities.raw.includes("samsungce.dishwasherOperation")
+  );
+  const isRunning = device.state.operatingState === "running" || device.state.operatingState === "run";
+  const canStart = hasApplianceStart && device.controllable && device.state.remoteControlEnabled === true && !isRunning;
 
   return (
     <article className={`device-card ${isOn ? "is-on" : ""} ${!device.controllable ? "disabled" : ""}`}>
@@ -82,7 +93,24 @@ export default function DeviceCard({ device, busy, onCommand }: Props) {
         </div>
       )}
 
-      {(device.kind === "light" || device.kind === "outlet" || device.kind === "appliance" || device.kind === "thermostat") && device.capabilities.switch && (
+      {hasApplianceStart && (
+        <div className="appliance-control">
+          <div className="appliance-status">
+            <span>{operationLabel(device.state.operatingState)}</span>
+            {typeof device.state.progress === "number" && <strong>{Math.round(device.state.progress)}%</strong>}
+            {device.state.remainingTimeText && <small>남은 시간 {device.state.remainingTimeText}</small>}
+          </div>
+          <button
+            className="refresh-button"
+            disabled={busy || !canStart}
+            onClick={() => onCommand({ action: "appliance.start" })}
+          >
+            {isRunning ? "작동 중" : device.state.remoteControlEnabled === true ? "시작" : "Smart Control 필요"}
+          </button>
+        </div>
+      )}
+
+      {(device.kind === "light" || device.kind === "outlet" || device.kind === "thermostat") && device.capabilities.switch && (
         <div className="switch-row">
           <span>{isOn ? "켜짐" : "꺼짐"}</span>
           <button
