@@ -9,7 +9,7 @@ export type DeviceCapabilities = {
   thermostatHeatingSetpoint?: boolean;
   fanSpeed?: boolean;
   lock?: boolean;
-  raw: string[];
+  raw: readonly string[];
 };
 
 export type HomeDeviceState = {
