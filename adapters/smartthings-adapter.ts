@@ -9,6 +9,16 @@ import {
 } from "@/smartthings/client";
 import { mapDeviceCommand } from "@/smartthings/command-mapper";
 import { normalizeSmartThingsDevice } from "@/smartthings/normalizer";
+import type { SmartThingsDevice } from "@/smartthings/types";
+
+function capabilityIds(device: SmartThingsDevice) {
+  return (device.components ?? []).flatMap((component) => (component.capabilities ?? []).map((capability) => capability.id));
+}
+
+function needsLiveStatus(device: SmartThingsDevice) {
+  const ids = capabilityIds(device);
+  return ids.includes("samsungce.washerOperatingState") || ids.includes("samsungce.dishwasherOperation");
+}
 
 export class SmartThingsAdapter implements IoTAdapter {
   private async loadDevices() {
@@ -21,7 +31,13 @@ export class SmartThingsAdapter implements IoTAdapter {
       }),
     );
     const roomNameById = new Map(roomGroups.flat());
-    return devices.map((device) => normalizeSmartThingsDevice(device, roomNameById));
+
+    return Promise.all(
+      devices.map(async (device) => {
+        const status = needsLiveStatus(device) ? await getSmartThingsDeviceStatus(device.deviceId) : undefined;
+        return normalizeSmartThingsDevice(device, roomNameById, status);
+      }),
+    );
   }
 
   async listDevices() {
