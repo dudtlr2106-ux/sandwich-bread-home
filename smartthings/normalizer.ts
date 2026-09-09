@@ -68,7 +68,20 @@ export function normalizeSmartThingsDevice(
   }
 
   const isDoorLock = kind === "doorlock";
-  const hasSupportedControl = capabilities.includes("switch") || capabilities.includes("thermostatHeatingSetpoint") || capabilities.includes("fanSpeed");
+  const isAppliance = kind === "appliance";
+  const hasMappedControl =
+    !isAppliance &&
+    (capabilities.includes("switch") || capabilities.includes("thermostatHeatingSetpoint") || capabilities.includes("fanSpeed"));
+
+  if (isAppliance) {
+    const isWasher = capabilities.includes("washerOperatingState") || capabilities.includes("samsungce.washerOperatingState");
+    const isDishwasher = capabilities.includes("dishwasherOperatingState") || capabilities.includes("samsungce.dishwasherOperation");
+    state.detail = isWasher
+      ? "SmartThings 연결됨 · 세탁기 원격 시작은 전용 capability와 Smart Control 상태 확인 후 연결합니다."
+      : isDishwasher
+        ? "SmartThings 연결됨 · 식기세척기 원격 시작은 전용 capability와 원격제어 상태 확인 후 연결합니다."
+        : "SmartThings 연결됨 · 상태 조회 가능 · 기기별 전용 제어 명령 확인 후 연결합니다.";
+  }
 
   return {
     id: device.deviceId,
@@ -80,7 +93,9 @@ export function normalizeSmartThingsDevice(
     kind,
     source: "smartthings",
     capabilities: {
-      switch: capabilities.includes("switch"),
+      // A Samsung appliance may expose the generic switch capability while not accepting it as a true
+      // remote-start/power control. Do not expose generic appliance switches until mapped per device type.
+      switch: !isAppliance && capabilities.includes("switch"),
       temperatureMeasurement: capabilities.includes("temperatureMeasurement"),
       thermostatHeatingSetpoint: capabilities.includes("thermostatHeatingSetpoint"),
       fanSpeed: capabilities.includes("fanSpeed"),
@@ -88,11 +103,13 @@ export function normalizeSmartThingsDevice(
       raw: capabilities,
     },
     state,
-    controllable: !isDoorLock && hasSupportedControl,
+    controllable: !isDoorLock && hasMappedControl,
     disabledReason: isDoorLock
       ? "도어락/문열기는 capability 확인 및 별도 검증 전까지 비활성입니다."
-      : hasSupportedControl
-        ? undefined
-        : "현재 1차 버전에서 안전하게 매핑된 제어 capability가 없습니다.",
+      : isAppliance
+        ? "가전의 generic switch를 전원/시작 버튼으로 사용하지 않습니다. 기기별 실제 제어 capability를 확인한 뒤 연결합니다."
+        : hasMappedControl
+          ? undefined
+          : "현재 1차 버전에서 안전하게 매핑된 제어 capability가 없습니다.",
   };
 }
