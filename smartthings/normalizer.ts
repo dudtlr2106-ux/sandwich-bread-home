@@ -10,8 +10,13 @@ function categoryNames(device: SmartThingsDevice) {
 }
 
 function getStatusValue(status: SmartThingsStatus | undefined, capability: string, attribute: string) {
-  const value = status?.components?.main?.[capability]?.[attribute];
-  return value;
+  return status?.components?.main?.[capability]?.[attribute];
+}
+
+function boolValue(value: unknown): boolean | undefined {
+  if (value === true || value === "true") return true;
+  if (value === false || value === "false") return false;
+  return undefined;
 }
 
 function classify(device: SmartThingsDevice, capabilities: string[]): DeviceKind {
@@ -69,18 +74,44 @@ export function normalizeSmartThingsDevice(
 
   const isDoorLock = kind === "doorlock";
   const isAppliance = kind === "appliance";
-  const hasMappedControl =
-    !isAppliance &&
-    (capabilities.includes("switch") || capabilities.includes("thermostatHeatingSetpoint") || capabilities.includes("fanSpeed"));
+  const isWasher = capabilities.includes("samsungce.washerOperatingState");
+  const isDishwasher = capabilities.includes("samsungce.dishwasherOperation");
+  const hasSafeApplianceStart = isWasher || isDishwasher;
+  const hasMappedControl = isAppliance
+    ? hasSafeApplianceStart
+    : capabilities.includes("switch") || capabilities.includes("thermostatHeatingSetpoint") || capabilities.includes("fanSpeed");
 
-  if (isAppliance) {
-    const isWasher = capabilities.includes("washerOperatingState") || capabilities.includes("samsungce.washerOperatingState");
-    const isDishwasher = capabilities.includes("dishwasherOperatingState") || capabilities.includes("samsungce.dishwasherOperation");
-    state.detail = isWasher
-      ? "SmartThings 연결됨 · 세탁기 원격 시작은 전용 capability와 Smart Control 상태 확인 후 연결합니다."
-      : isDishwasher
-        ? "SmartThings 연결됨 · 식기세척기 원격 시작은 전용 capability와 원격제어 상태 확인 후 연결합니다."
-        : "SmartThings 연결됨 · 상태 조회 가능 · 기기별 전용 제어 명령 확인 후 연결합니다.";
+  if (isWasher || isDishwasher) {
+    const remote = boolValue(getStatusValue(status, "remoteControlStatus", "remoteControlEnabled")?.value);
+    if (remote !== undefined) state.remoteControlEnabled = remote;
+
+    const operationCapability = isWasher ? "samsungce.washerOperatingState" : "samsungce.dishwasherOperation";
+    const operatingState = getStatusValue(status, operationCapability, "operatingState")?.value;
+    if (typeof operatingState === "string") state.operatingState = operatingState;
+
+    const jobAttribute = isWasher ? "washerJobState" : "dishwasherJobState";
+    const jobState = getStatusValue(status, operationCapability, jobAttribute)?.value
+      ?? (isDishwasher ? getStatusValue(status, "samsungce.dishwasherJobState", "dishwasherJobState")?.value : undefined);
+    if (typeof jobState === "string") state.jobState = jobState;
+
+    const progress = getStatusValue(status, operationCapability, "progress")?.value
+      ?? getStatusValue(status, operationCapability, "progressPercentage")?.value
+      ?? (isDishwasher ? getStatusValue(status, "custom.dishwasherOperatingPercentage", "operatingPercentage")?.value : undefined);
+    if (typeof progress === "number") state.progress = progress;
+
+    const remainingText = getStatusValue(status, operationCapability, "remainingTimeStr")?.value;
+    if (typeof remainingText === "string") state.remainingTimeText = remainingText;
+
+    const remaining = getStatusValue(status, operationCapability, "remainingTime");
+    if (typeof remaining?.value === "number") {
+      state.remainingTime = remaining.value;
+      state.remainingTimeUnit = remaining.unit;
+    }
+
+    const remoteText = state.remoteControlEnabled === true ? "원격제어 준비됨" : state.remoteControlEnabled === false ? "기기에서 Smart Control을 켜야 원격 시작 가능" : "원격제어 상태 확인 중";
+    state.detail = `${remoteText}${state.operatingState ? ` · 상태 ${state.operatingState}` : ""}${state.remainingTimeText ? ` · 남은 시간 ${state.remainingTimeText}` : ""}`;
+  } else if (isAppliance) {
+    state.detail = "SmartThings 연결됨 · 상태 조회 가능 · 기기별 전용 제어 명령 확인 후 연결합니다.";
   }
 
   return {
@@ -93,8 +124,8 @@ export function normalizeSmartThingsDevice(
     kind,
     source: "smartthings",
     capabilities: {
-      // A Samsung appliance may expose the generic switch capability while not accepting it as a true
-      // remote-start/power control. Do not expose generic appliance switches until mapped per device type.
+      // Samsung appliances may expose a generic switch that is not the appliance's real Start control.
+      // Keep that hidden and use only device-specific operation capabilities below.
       switch: !isAppliance && capabilities.includes("switch"),
       temperatureMeasurement: capabilities.includes("temperatureMeasurement"),
       thermostatHeatingSetpoint: capabilities.includes("thermostatHeatingSetpoint"),
@@ -106,8 +137,8 @@ export function normalizeSmartThingsDevice(
     controllable: !isDoorLock && hasMappedControl,
     disabledReason: isDoorLock
       ? "도어락/문열기는 capability 확인 및 별도 검증 전까지 비활성입니다."
-      : isAppliance
-        ? "가전의 generic switch를 전원/시작 버튼으로 사용하지 않습니다. 기기별 실제 제어 capability를 확인한 뒤 연결합니다."
+      : isAppliance && !hasSafeApplianceStart
+        ? "이 가전은 아직 안전하게 매핑된 원격 제어 명령이 없습니다."
         : hasMappedControl
           ? undefined
           : "현재 1차 버전에서 안전하게 매핑된 제어 capability가 없습니다.",
