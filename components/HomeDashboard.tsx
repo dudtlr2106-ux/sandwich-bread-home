@@ -149,7 +149,7 @@ export default function HomeDashboard() {
         <div className="quick-control-buttons">
           <button className="quick-button primary" disabled={bulkBusy} onClick={() => bulkSwitch("home", "on")}>전체 켜기</button>
           <button className="quick-button" disabled={bulkBusy} onClick={() => bulkSwitch("home", "off")}>전체 끄기</button>
-          <button className="quick-button elevator" onClick={callElevator}>엘베 부르기 <span>MOCK</span></button>
+          <button className="quick-button elevator" onClick={callElevator}>엘베 부르기 <span>{mode === "mock" ? "MOCK" : "준비중"}</span></button>
         </div>
         <small>전체 제어는 조명·난방·콘센트만 대상으로 하며 세탁기·식기세척기·도어락은 제외합니다.</small>
       </section>
