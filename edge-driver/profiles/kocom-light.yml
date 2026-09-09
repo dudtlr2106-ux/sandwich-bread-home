@@ -1,0 +1,9 @@
+name: kocom-light
+components:
+  - id: main
+    label: KOCOM Light
+    capabilities:
+      - id: switch
+        version: 1
+    categories:
+      - name: Light

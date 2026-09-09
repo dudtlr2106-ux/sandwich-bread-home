@@ -1,0 +1,9 @@
+name: kocom-outlet
+components:
+  - id: main
+    label: KOCOM Outlet
+    capabilities:
+      - id: switch
+        version: 1
+    categories:
+      - name: Outlet

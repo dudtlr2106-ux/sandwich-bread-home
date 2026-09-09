@@ -1,0 +1,13 @@
+name: kocom-thermostat
+components:
+  - id: main
+    label: KOCOM Thermostat
+    capabilities:
+      - id: switch
+        version: 1
+      - id: temperatureMeasurement
+        version: 1
+      - id: thermostatHeatingSetpoint
+        version: 1
+    categories:
+      - name: Thermostat

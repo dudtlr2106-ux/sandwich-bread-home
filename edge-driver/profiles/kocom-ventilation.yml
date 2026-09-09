@@ -1,0 +1,11 @@
+name: kocom-ventilation
+components:
+  - id: main
+    label: KOCOM Ventilation
+    capabilities:
+      - id: switch
+        version: 1
+      - id: fanSpeed
+        version: 1
+    categories:
+      - name: Fan

@@ -1,0 +1,4 @@
+name: ourhome-kocom
+packageKey: ourhome-kocom
+permissions:
+  lan: {}
