@@ -22,6 +22,13 @@ export type HomeDeviceState = {
   ventilationLevel?: VentilationLevel;
   online?: boolean;
   detail?: string;
+  remoteControlEnabled?: boolean;
+  operatingState?: string;
+  jobState?: string;
+  progress?: number;
+  remainingTime?: number;
+  remainingTimeUnit?: string;
+  remainingTimeText?: string;
 };
 
 export type HomeDevice = {
@@ -42,7 +49,8 @@ export type HomeDevice = {
 export type DeviceCommand =
   | { action: "switch.set"; value: SwitchValue }
   | { action: "heating.setSetpoint"; value: number }
-  | { action: "ventilation.setLevel"; value: VentilationLevel };
+  | { action: "ventilation.setLevel"; value: VentilationLevel }
+  | { action: "appliance.start" };
 
 export type CommandResult = {
   ok: boolean;
