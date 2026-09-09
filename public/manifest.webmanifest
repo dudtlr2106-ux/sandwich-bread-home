@@ -1,0 +1,25 @@
+{
+  "name": "우리집",
+  "short_name": "우리집",
+  "description": "우리집 스마트홈 컨트롤러",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f7ff",
+  "theme_color": "#7457d9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/home-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/home-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
