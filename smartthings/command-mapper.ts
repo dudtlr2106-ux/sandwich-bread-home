@@ -39,6 +39,23 @@ export function mapDeviceCommand(device: HomeDevice, command: DeviceCommand): Sm
     return commands;
   }
 
+  if (command.action === "appliance.start") {
+    if (device.kind !== "appliance") throw new Error("This command is only available for supported appliances.");
+    if (device.state.remoteControlEnabled !== true) {
+      throw new Error("기기에서 Smart Control(원격제어)을 먼저 켜주세요.");
+    }
+
+    if (device.capabilities.raw.includes("samsungce.washerOperatingState")) {
+      return [{ component: "main", capability: "samsungce.washerOperatingState", command: "start" }];
+    }
+
+    if (device.capabilities.raw.includes("samsungce.dishwasherOperation")) {
+      return [{ component: "main", capability: "samsungce.dishwasherOperation", command: "start" }];
+    }
+
+    throw new Error("이 가전은 아직 검증된 원격 시작 명령이 없습니다.");
+  }
+
   const neverCommand: never = command;
   throw new Error(`Unsupported command: ${JSON.stringify(neverCommand)}`);
 }
