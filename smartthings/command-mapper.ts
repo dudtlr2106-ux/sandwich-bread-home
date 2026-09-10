@@ -2,6 +2,7 @@ import type { DeviceCommand, HomeDevice } from "@/lib/types";
 import type { SmartThingsCommand } from "@/smartthings/types";
 
 export function mapDeviceCommand(device: HomeDevice, command: DeviceCommand): SmartThingsCommand[] {
+  if (device.state.online === false) throw new Error("오프라인 장치는 제어할 수 없습니다.");
   if (device.kind === "doorlock" || device.capabilities.lock) {
     throw new Error("Door lock commands are intentionally disabled until the SmartThings capability is explicitly verified.");
   }
@@ -41,6 +42,7 @@ export function mapDeviceCommand(device: HomeDevice, command: DeviceCommand): Sm
 
   if (command.action === "appliance.start") {
     if (device.kind !== "appliance") throw new Error("This command is only available for supported appliances.");
+    if (["run", "running"].includes(device.state.operatingState ?? "")) throw new Error("이미 작동 중인 가전입니다.");
     if (device.state.remoteControlEnabled !== true) {
       throw new Error("기기에서 Smart Control(원격제어)을 먼저 켜주세요.");
     }

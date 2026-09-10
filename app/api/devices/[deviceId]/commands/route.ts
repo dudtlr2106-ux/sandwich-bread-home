@@ -1,35 +1,12 @@
 import { NextResponse } from "next/server";
 import { getIoTAdapter } from "@/lib/iot-service";
 import { writeLog } from "@/lib/logger";
-import type { DeviceCommand, VentilationLevel } from "@/lib/types";
+import { InvalidCommandError, parseCommand } from "@/lib/command-parser";
+import { SmartThingsApiError } from "@/smartthings/client";
 
 export const runtime = "nodejs";
 
 type Context = { params: Promise<{ deviceId: string }> };
-
-function parseCommand(value: unknown): DeviceCommand {
-  if (!value || typeof value !== "object") throw new Error("Command body must be an object");
-  const body = value as Record<string, unknown>;
-
-  if (body.action === "switch.set" && (body.value === "on" || body.value === "off")) {
-    return { action: "switch.set", value: body.value };
-  }
-
-  if (body.action === "heating.setSetpoint" && typeof body.value === "number" && Number.isFinite(body.value)) {
-    return { action: "heating.setSetpoint", value: body.value };
-  }
-
-  const ventilationValues: VentilationLevel[] = ["off", "low", "medium", "high"];
-  if (body.action === "ventilation.setLevel" && ventilationValues.includes(body.value as VentilationLevel)) {
-    return { action: "ventilation.setLevel", value: body.value as VentilationLevel };
-  }
-
-  if (body.action === "appliance.start") {
-    return { action: "appliance.start" };
-  }
-
-  throw new Error("Unsupported or invalid command payload");
-}
 
 export async function POST(request: Request, context: Context) {
   const { deviceId } = await context.params;
@@ -40,7 +17,9 @@ export async function POST(request: Request, context: Context) {
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    await writeLog("error", "device.command", message, { deviceId });
-    return NextResponse.json({ error: message }, { status: 400 });
+    const invalid = error instanceof InvalidCommandError || error instanceof SyntaxError;
+    const code = invalid ? "INVALID_COMMAND" : error instanceof SmartThingsApiError ? "SMARTTHINGS_API_ERROR" : "COMMAND_REJECTED";
+    await writeLog("error", "device.command", message, { deviceId, code });
+    return NextResponse.json({ error: message, code }, { status: error instanceof SmartThingsApiError ? 502 : 400 });
   }
 }

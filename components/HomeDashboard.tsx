@@ -29,6 +29,7 @@ export default function HomeDashboard() {
   const [busyId, setBusyId] = useState<string>();
   const [bulkBusy, setBulkBusy] = useState(false);
   const [category, setCategory] = useState<CategoryKey>("all");
+  const [elevatorBusy, setElevatorBusy] = useState(false);
   const [elevatorMessage, setElevatorMessage] = useState<string>();
 
   const load = useCallback(async () => {
@@ -93,7 +94,7 @@ export default function HomeDashboard() {
     setError(undefined);
 
     const targets = devices.filter((device) => {
-      if (!device.controllable || !device.capabilities.switch || device.kind === "doorlock" || device.kind === "appliance" || device.kind === "ventilation") return false;
+      if (device.state.online === false || !device.controllable || !device.capabilities.switch || device.kind === "doorlock" || device.kind === "appliance" || device.kind === "ventilation") return false;
       if (target === "light") return device.kind === "light";
       if (target === "thermostat") return device.kind === "thermostat";
       return device.kind === "light" || device.kind === "thermostat" || device.kind === "outlet";
@@ -111,12 +112,20 @@ export default function HomeDashboard() {
     }
   }
 
-  function callElevator() {
-    setElevatorMessage(mode === "mock" ? "엘리베이터 호출 완료 (MOCK)" : "엘리베이터 연동 방식 확인 전에는 실제 호출하지 않습니다.");
-    window.setTimeout(() => setElevatorMessage(undefined), 3200);
+  async function callElevator() {
+    setElevatorBusy(true);
+    try {
+      const response = await fetch("/api/elevator", { method: "POST" });
+      const data = await response.json();
+      setElevatorMessage(data.message ?? "엘리베이터 호출에 실패했습니다.");
+    } catch {
+      setElevatorMessage("엘리베이터 호출 서버에 연결하지 못했습니다.");
+    } finally {
+      setElevatorBusy(false);
+    }
   }
 
-  const onlineCount = devices.filter((device) => device.state.online !== false).length;
+  const onlineCount = devices.filter((device) => device.state.online === true).length;
   const activeCount = devices.filter((device) => device.state.switch === "on").length;
 
   const counts = useMemo(() => ({
@@ -147,9 +156,9 @@ export default function HomeDashboard() {
           <h2>자주 쓰는 기능</h2>
         </div>
         <div className="quick-control-buttons">
-          <button className="quick-button primary" disabled={bulkBusy} onClick={() => bulkSwitch("home", "on")}>전체 켜기</button>
-          <button className="quick-button" disabled={bulkBusy} onClick={() => bulkSwitch("home", "off")}>전체 끄기</button>
-          <button className="quick-button elevator" onClick={callElevator}>엘베 부르기 <span>{mode === "mock" ? "MOCK" : "준비중"}</span></button>
+          <button className="quick-button primary" disabled={bulkBusy || loading || Boolean(busyId)} onClick={() => bulkSwitch("home", "on")}>전체 켜기</button>
+          <button className="quick-button" disabled={bulkBusy || loading || Boolean(busyId)} onClick={() => bulkSwitch("home", "off")}>전체 끄기</button>
+          <button className="quick-button elevator" disabled={elevatorBusy} onClick={() => void callElevator()}>엘베 부르기 <span>{mode === "mock" ? "MOCK" : "KOCOM 연결 준비"}</span></button>
         </div>
         <small>전체 제어는 조명·난방·콘센트만 대상으로 하며 세탁기·식기세척기·도어락은 제외합니다.</small>
       </section>
@@ -163,6 +172,8 @@ export default function HomeDashboard() {
         <article className="summary-card safety"><span>도어락</span><strong>비활성</strong><small>검증 전 제어 금지</small></article>
       </section>
 
+      <button className="refresh-button" disabled={loading || bulkBusy || Boolean(busyId)} onClick={() => void load()}>{loading ? "상태 확인 중…" : "장치 상태 새로고침"}</button>
+
       <section className="category-panel" aria-label="장치 카테고리">
         <div className="category-tabs">
           {(Object.keys(categoryMeta) as CategoryKey[]).map((key) => (
@@ -174,8 +185,8 @@ export default function HomeDashboard() {
         </div>
         <div className="category-description">
           <div><p>{categoryMeta[category].label}</p><strong>{categoryMeta[category].description}</strong></div>
-          {category === "light" && <div className="category-bulk"><button disabled={bulkBusy} onClick={() => bulkSwitch("light", "on")}>조명 전체 켜기</button><button disabled={bulkBusy} onClick={() => bulkSwitch("light", "off")}>조명 전체 끄기</button></div>}
-          {category === "thermostat" && <div className="category-bulk"><button disabled={bulkBusy} onClick={() => bulkSwitch("thermostat", "on")}>난방 전체 켜기</button><button disabled={bulkBusy} onClick={() => bulkSwitch("thermostat", "off")}>난방 전체 끄기</button></div>}
+          {category === "light" && <div className="category-bulk"><button disabled={bulkBusy || loading || Boolean(busyId)} onClick={() => bulkSwitch("light", "on")}>조명 전체 켜기</button><button disabled={bulkBusy || loading || Boolean(busyId)} onClick={() => bulkSwitch("light", "off")}>조명 전체 끄기</button></div>}
+          {category === "thermostat" && <div className="category-bulk"><button disabled={bulkBusy || loading || Boolean(busyId)} onClick={() => bulkSwitch("thermostat", "on")}>난방 전체 켜기</button><button disabled={bulkBusy || loading || Boolean(busyId)} onClick={() => bulkSwitch("thermostat", "off")}>난방 전체 끄기</button></div>}
         </div>
       </section>
 

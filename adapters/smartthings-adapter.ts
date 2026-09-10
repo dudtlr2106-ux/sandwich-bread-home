@@ -1,24 +1,15 @@
 import "server-only";
 import type { IoTAdapter } from "@/adapters/iot-adapter";
-import type { CommandResult, DeviceCommand, HomeDevice } from "@/lib/types";
+import type { CommandResult, DeviceCommand } from "@/lib/types";
 import {
   executeSmartThingsCommands,
+  getSmartThingsCapability,
   getSmartThingsDeviceStatus,
   listSmartThingsDevices,
   listSmartThingsRooms,
 } from "@/smartthings/client";
 import { mapDeviceCommand } from "@/smartthings/command-mapper";
 import { normalizeSmartThingsDevice } from "@/smartthings/normalizer";
-import type { SmartThingsDevice } from "@/smartthings/types";
-
-function capabilityIds(device: SmartThingsDevice) {
-  return (device.components ?? []).flatMap((component) => (component.capabilities ?? []).map((capability) => capability.id));
-}
-
-function needsLiveStatus(device: SmartThingsDevice) {
-  const ids = capabilityIds(device);
-  return ids.includes("samsungce.washerOperatingState") || ids.includes("samsungce.dishwasherOperation");
-}
 
 export class SmartThingsAdapter implements IoTAdapter {
   private async loadDevices() {
@@ -34,7 +25,7 @@ export class SmartThingsAdapter implements IoTAdapter {
 
     return Promise.all(
       devices.map(async (device) => {
-        const status = needsLiveStatus(device) ? await getSmartThingsDeviceStatus(device.deviceId) : undefined;
+        const status = await getSmartThingsDeviceStatus(device.deviceId);
         return normalizeSmartThingsDevice(device, roomNameById, status);
       }),
     );
@@ -60,6 +51,18 @@ export class SmartThingsAdapter implements IoTAdapter {
     if (!device.controllable) throw new Error(device.disabledReason ?? "Device is not controllable");
 
     const commands = mapDeviceCommand(device, command);
+    if (command.action === "appliance.start") {
+      const raw = (await listSmartThingsDevices()).find((item) => item.deviceId === deviceId);
+      for (const mapped of commands) {
+        const ref = raw?.components?.find((item) => item.id === mapped.component)?.capabilities?.find((item) => item.id === mapped.capability);
+        if (!ref) throw new Error("기기의 해당 구성요소에서 시작 기능을 찾을 수 없습니다.");
+        const definition = await getSmartThingsCapability(ref.id, ref.version);
+        const start = definition.commands?.[mapped.command];
+        if (!start || (start.arguments ?? []).some((argument) => !argument.optional)) {
+          throw new Error("이 기기의 시작 명령 정의가 변경되었습니다. capability 확인이 필요합니다.");
+        }
+      }
+    }
     await executeSmartThingsCommands(deviceId, commands);
     return { ok: true, deviceId, command, message: "SmartThings command accepted" };
   }

@@ -18,6 +18,7 @@
 | 난방 설정온도 | - | - | - | UNCONFIRMED | 실제 RS485 캡처 필요 |
 | 환기 OFF/약/중/강 | - | - | - | UNCONFIRMED | 실제 RS485 캡처 필요 |
 | 콘센트 ON/OFF | - | - | - | UNCONFIRMED | 실제 RS485 캡처 필요 |
+| 엘리베이터 호출 | - | - | - | UNCONFIRMED | KOCOM 월패드 호출 전후 수신 캡처 필요 |
 
 ## 패킷을 CONFIRMED로 올리기 위한 체크리스트
 

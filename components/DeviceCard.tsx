@@ -40,7 +40,7 @@ export default function DeviceCard({ device, busy, onCommand }: Props) {
     device.capabilities.raw.includes("samsungce.dishwasherOperation")
   );
   const isRunning = device.state.operatingState === "running" || device.state.operatingState === "run";
-  const canStart = hasApplianceStart && device.controllable && device.state.remoteControlEnabled === true && !isRunning;
+  const canStart = hasApplianceStart && device.controllable && device.state.online !== false && device.state.remoteControlEnabled === true && !isRunning;
 
   return (
     <article className={`device-card ${isOn ? "is-on" : ""} ${!device.controllable ? "disabled" : ""}`}>
@@ -50,7 +50,7 @@ export default function DeviceCard({ device, busy, onCommand }: Props) {
           <div className="device-meta"><span>{kindLabel[device.kind]}</span><span>·</span><span>{device.source}</span></div>
           <h3>{device.label}</h3>
         </div>
-        <span className={`online-dot ${device.state.online === false ? "offline" : ""}`} title={device.state.online === false ? "오프라인" : "온라인"} />
+        <span className={`online-dot ${device.state.online === false ? "offline" : ""}`} title={device.state.online === undefined ? "연결 상태 미확인" : device.state.online ? "온라인" : "오프라인"} />
       </div>
 
       {device.kind === "thermostat" && (
