@@ -2,7 +2,7 @@ import type { DeviceKind, HomeDevice, HomeDeviceState, VentilationLevel } from "
 import type { SmartThingsDevice, SmartThingsStatus } from "@/smartthings/types";
 
 function capabilityIds(device: SmartThingsDevice) {
-  return Array.from(new Set((device.components ?? []).flatMap((component) => (component.capabilities ?? []).map((capability) => capability.id))));
+  return Array.from(new Set((device.components ?? []).filter((component) => component.id === "main").flatMap((component) => (component.capabilities ?? []).map((capability) => capability.id))));
 }
 
 function categoryNames(device: SmartThingsDevice) {
@@ -55,7 +55,7 @@ export function normalizeSmartThingsDevice(
   const fanSpeed = getStatusValue(status, "fanSpeed", "fanSpeed")?.value;
 
   const state: HomeDeviceState = {
-    online: device.health?.state ? device.health.state === "ONLINE" : true,
+    online: device.health?.state ? device.health.state === "ONLINE" : undefined,
   };
 
   if (switchValue === "on" || switchValue === "off") state.switch = switchValue;

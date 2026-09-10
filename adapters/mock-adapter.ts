@@ -1,3 +1,4 @@
+import { mapDeviceCommand } from "@/smartthings/command-mapper";
 import type { IoTAdapter } from "@/adapters/iot-adapter";
 import type { CommandResult, DeviceCommand, HomeDevice, VentilationLevel } from "@/lib/types";
 
@@ -171,10 +172,9 @@ const mockDevices: HomeDevice[] = [
     roomName: "세탁실",
     kind: "appliance",
     source: "mock",
-    capabilities: { raw: ["washerMode", "washerOperatingState"] },
-    state: { online: true, detail: "실제 SmartThings capability 확인 후 코스/시작 제어 연결" },
-    controllable: false,
-    disabledReason: "세탁기는 단순 ON/OFF가 아닌 실제 capability 확인 후 제어합니다.",
+    capabilities: { raw: ["samsungce.washerOperatingState"] },
+    state: { online: true, remoteControlEnabled: true, operatingState: "ready" },
+    controllable: true,
   },
   {
     id: "mock-dishwasher",
@@ -183,10 +183,9 @@ const mockDevices: HomeDevice[] = [
     roomName: "주방",
     kind: "appliance",
     source: "mock",
-    capabilities: { raw: ["dishwasherOperatingState"] },
-    state: { online: true, detail: "실제 SmartThings capability 확인 후 코스/시작 제어 연결" },
-    controllable: false,
-    disabledReason: "식기세척기는 실제 capability 확인 후 제어합니다.",
+    capabilities: { raw: ["samsungce.dishwasherOperation"] },
+    state: { online: true, remoteControlEnabled: true, operatingState: "ready" },
+    controllable: true,
   },
   {
     id: "mock-doorlock",
@@ -244,6 +243,11 @@ export class MockAdapter implements IoTAdapter {
       device.state.switch = command.value === "off" ? "off" : "on";
     }
 
+    if (command.action === "appliance.start") {
+      mapDeviceCommand(device, command);
+      device.state.operatingState = "running";
+      device.state.progress = 0;
+    }
     return { ok: true, deviceId, command, message: "Mock command applied" };
   }
 }

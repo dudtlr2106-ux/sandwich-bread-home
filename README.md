@@ -32,7 +32,7 @@ SmartThings에 이미 등록된 삼성 가전도 같은 장치 목록에서 함�
 - 난방 현재온도 / 설정온도 / ON/OFF
 - 환기 OFF / 약 / 중 / 강
 - 콘센트 ON/OFF
-- SmartThings 등록 삼성 가전 표시 및 `switch` capability 제어
+- 삼성 세탁기·식기세척기 전용 시작 제어 (Smart Control 상태 확인)
 - SmartThings 장치 목록 조회
 - SmartThings 장치 상태 조회
 - SmartThings 명령 전송 API
@@ -154,7 +154,7 @@ SMARTTHINGS_TOKEN=YOUR_TOKEN
 
 ### 4. 삼성 가전
 
-SmartThings 목록에 있는 가전은 동일하게 표시됩니다. 1차 버전은 `switch`가 있는 가전에 한해 ON/OFF를 제공합니다. 냉장고/세탁기/TV의 세부 capability 제어는 실제 장치 capability를 확인한 뒤 추가합니다.
+삼성 세탁기는 `samsungce.washerOperatingState.start`, 식기세척기는 `samsungce.dishwasherOperation.start`로 매핑합니다. 서버가 해당 구성요소의 capability 버전과 명령 정의를 조회해 인수 없는 시작을 지원하는지 확인합니다. Smart Control이 켜져 있어야 하며, 작동 중이거나 오프라인이면 거부합니다. 일반 switch로 가전을 시작하지 않습니다.
 
 ## Edge Driver 연동 지점
 
@@ -230,3 +230,25 @@ GET /api/devices/{deviceId}/status
 6. 검증된 패킷만 제한적으로 TX 구현
 7. Samsung appliance별 추가 capability UI 확장
 8. 운영용 인증/접근 제어 및 영구 로그 저장소 추가
+
+## 명령 API 회귀 검증 (2026-09-10)
+
+`Unsupported or invalid command payload`는 SmartThings 오류가 아니라 앱의 요청 파서 오류였습니다.
+기존 커밋 `72fa5c7`이 `appliance.start`를 추가했으며, 배포본에 존재하지 않는 장치 ID로
+해당 요청을 보내 `SmartThings device not found`가 반환되는 것으로 파서 수정 반영을 확인했습니다.
+실제 가전 시작은 이 진단에서 실행하지 않았습니다.
+
+```json
+{ "action": "appliance.start" }
+```
+
+현재 파서는 `lib/command-parser.ts`에 있으며 HTTP 오류에 `INVALID_COMMAND`,
+`COMMAND_REJECTED`, `SMARTTHINGS_API_ERROR` 코드를 포함합니다.
+SmartThings HTTP 실패는 502로 구별하고, 토큰은 계속 서버에서만 사용합니다.
+
+Node.js 24에서 `pnpm test`, `pnpm typecheck`, `pnpm build`로 검증합니다.
+Mock 세탁기와 식기세척기는 시작 후 running 상태로 바뀌어 UI/API 흐름을 시험할 수 있습니다.
+전체 장치는 상태 API를 조회하고 화면의 장치 상태 새로고침으로 다시 읽습니다.
+명령 접수는 실제 동작 완료를 뜻하지 않습니다.
+
+후속 연동 범위와 검증 결과는 `docs/development-status.md`를 참고하세요.

@@ -1,6 +1,8 @@
 import "server-only";
 import type { SmartThingsCommand, SmartThingsDevice, SmartThingsRoom, SmartThingsStatus } from "@/smartthings/types";
 
+export class SmartThingsApiError extends Error {}
+
 function config() {
   const token = process.env.SMARTTHINGS_TOKEN;
   if (!token) throw new Error("SMARTTHINGS_TOKEN is missing. Keep it in a server-only environment variable.");
@@ -16,6 +18,7 @@ async function request<T>(pathname: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${pathname}`, {
     ...init,
     cache: "no-store",
+    signal: AbortSignal.timeout(15000),
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
@@ -26,7 +29,7 @@ async function request<T>(pathname: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`SmartThings API ${response.status}: ${body.slice(0, 500)}`);
+    throw new SmartThingsApiError(`SmartThings API ${response.status}: ${body.replaceAll(token, "[redacted]").slice(0, 500)}`);
   }
 
   return (await response.json()) as T;
@@ -54,4 +57,10 @@ export async function executeSmartThingsCommands(deviceId: string, commands: Sma
     method: "POST",
     body: JSON.stringify({ commands }),
   });
+}
+
+export async function getSmartThingsCapability(id: string, version: number) {
+  return request<{ commands?: Record<string, { arguments?: Array<{ optional?: boolean }> }> }>(
+    `/capabilities/${encodeURIComponent(id)}/${version}`,
+  );
 }
