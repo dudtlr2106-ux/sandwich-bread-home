@@ -1,4 +1,7 @@
 import "server-only";
+import { setTimeout as delay } from "node:timers/promises";
+import { commandMatchesState } from "@/lib/command-result";
+import { writeLog } from "@/lib/logger";
 import type { IoTAdapter } from "@/adapters/iot-adapter";
 import type { CommandResult, DeviceCommand } from "@/lib/types";
 import {
@@ -64,6 +67,29 @@ export class SmartThingsAdapter implements IoTAdapter {
       }
     }
     await executeSmartThingsCommands(deviceId, commands);
-    return { ok: true, deviceId, command, message: "SmartThings command accepted" };
+    // Acceptance is not execution. Observe status without resending a physical command.
+    let latest = device;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await delay(1000);
+      try {
+        const status = await getSmartThingsDeviceStatus(deviceId);
+        // The same main-component capabilities are retained during this confirmation window.
+        latest = normalizeSmartThingsDevice({
+          deviceId, name: device.name, label: device.label, roomId: device.roomId,
+          components: [{ id: "main", capabilities: device.capabilities.raw.map(id => ({ id, version: 1 })) }],
+        }, new Map(device.roomId ? [[device.roomId, device.roomName]] : []), status);
+        latest = { ...device, state: { ...latest.state, online: device.state.online } };
+        if (commandMatchesState(command, latest.state)) {
+          return { ok: true, deviceId, command, outcome: "confirmed", device: latest, message: "장치 상태에서 반영을 확인했습니다." };
+        }
+      } catch {
+        break;
+      }
+    }
+    const message = command.action === "appliance.start"
+      ? "시작 요청은 접수됐지만 작동 상태가 확인되지 않았습니다. 휴대폰 SmartThings 앱의 작동 상태와 원격제어 설정을 확인해주세요."
+      : "요청은 접수됐지만 상태 반영이 확인되지 않았습니다. 잠시 후 상태를 새로고침해주세요.";
+    await writeLog("warn", "device.command.unconfirmed", message, { deviceId, command, state: latest.state });
+    return { ok: true, deviceId, command, outcome: "unconfirmed", device: latest, message };
   }
 }

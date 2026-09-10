@@ -41,3 +41,13 @@
 Node.js 24에서 `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, `pnpm build`.
 빌드 후 `node tests/smartthings.integration.mjs`는 포트 3011에 테스트 앱을 띄우고 종료한다.
 브라우저 모의 검증은 `IOT_MODE=mock`으로 `pnpm start` 후 수행한다.
+
+## 전원 제어 및 접수/작동 구분 보완
+
+- 사용자 보고: 휴대폰 SmartThings에서는 식기세척기 시작 가능, 공식 PC 웹에서는 불가.
+- 운영 로그에는 시작 명령 HTTP 200 접수만 존재했으며 실제 시작 확인은 없었다.
+- 세탁기·식기세척기의 main switch를 전원 켜기/끄기로 별도 표시한다.
+- SmartThings 결과 배열에서 FAILED/알 수 없는 응답은 실패로 처리한다.
+- 명령 후 상태를 최대 3회 조회한다. 접수 후 상태 미반영은 unconfirmed로 카드와 로그에 표시한다.
+- 회귀 검사 6개, 빌드, 실제 Next API+SmartThings 모의 서버 통합 검사 통과.
+- 실제 가전의 원격 전원/시작 동작은 사용자 현장 테스트가 필요하다.

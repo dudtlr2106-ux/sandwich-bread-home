@@ -124,9 +124,8 @@ export function normalizeSmartThingsDevice(
     kind,
     source: "smartthings",
     capabilities: {
-      // Samsung appliances may expose a generic switch that is not the appliance's real Start control.
-      // Keep that hidden and use only device-specific operation capabilities below.
-      switch: !isAppliance && capabilities.includes("switch"),
+      // Power is separate from cycle start; expose it for the supported washer/dishwasher only.
+      switch: (!isAppliance || hasSafeApplianceStart) && capabilities.includes("switch"),
       temperatureMeasurement: capabilities.includes("temperatureMeasurement"),
       thermostatHeatingSetpoint: capabilities.includes("thermostatHeatingSetpoint"),
       fanSpeed: capabilities.includes("fanSpeed"),

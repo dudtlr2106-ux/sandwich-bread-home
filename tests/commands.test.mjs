@@ -42,3 +42,14 @@ test('capabilities from a different component cannot be sent to main', () => {
   assert.equal(device.controllable, false);
   assert.equal(device.state.online, undefined);
 });
+
+
+test('washer and dishwasher expose power without enabling unrelated appliance switches', () => {
+  for (const capability of ['samsungce.washerOperatingState', 'samsungce.dishwasherOperation']) {
+    const device = normalizeSmartThingsDevice({ deviceId: 'test', name: 'appliance', components: [{ id: 'main', capabilities: [{ id: capability, version: 1 }, { id: 'switch', version: 1 }] }] }, new Map());
+    assert.equal(device.capabilities.switch, true);
+    assert.deepEqual(mapDeviceCommand(device, { action: 'switch.set', value: 'off' }), [{ component: 'main', capability: 'switch', command: 'off' }]);
+  }
+  const fridge = normalizeSmartThingsDevice({ deviceId: 'fridge', name: 'fridge', components: [{ id: 'main', capabilities: [{ id: 'switch', version: 1 }] }] }, new Map());
+  assert.equal(fridge.capabilities.switch, false);
+});

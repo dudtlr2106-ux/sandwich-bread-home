@@ -172,8 +172,8 @@ const mockDevices: HomeDevice[] = [
     roomName: "세탁실",
     kind: "appliance",
     source: "mock",
-    capabilities: { raw: ["samsungce.washerOperatingState"] },
-    state: { online: true, remoteControlEnabled: true, operatingState: "ready" },
+    capabilities: { switch: true, raw: ["switch", "samsungce.washerOperatingState"] },
+    state: { online: true, switch: "on", remoteControlEnabled: true, operatingState: "ready" },
     controllable: true,
   },
   {
@@ -183,8 +183,8 @@ const mockDevices: HomeDevice[] = [
     roomName: "주방",
     kind: "appliance",
     source: "mock",
-    capabilities: { raw: ["samsungce.dishwasherOperation"] },
-    state: { online: true, remoteControlEnabled: true, operatingState: "ready" },
+    capabilities: { switch: true, raw: ["switch", "samsungce.dishwasherOperation"] },
+    state: { online: true, switch: "on", remoteControlEnabled: true, operatingState: "ready" },
     controllable: true,
   },
   {

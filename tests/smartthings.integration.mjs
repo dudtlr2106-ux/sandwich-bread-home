@@ -7,6 +7,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 const sent = [];
 let allowStart = true;
 let failCommand = false;
+let resultStatus = "ACCEPTED";
+let operatingState = "ready";
 const fixtures = [
   ['washer', 'samsungce.washerOperatingState'],
   ['dishwasher', 'samsungce.dishwasherOperation'],
@@ -21,13 +23,13 @@ const api = createServer(async (req, res) => {
   if (url.pathname.endsWith('/status')) {
     const id = url.pathname.split('/')[2];
     const capability = fixtures.find(([name]) => name === id)[1];
-    return res.end(JSON.stringify({ components: { main: { remoteControlStatus: { remoteControlEnabled: { value: true } }, [capability]: { operatingState: { value: 'ready' }, switch: { value: 'on' } } } } }));
+    return res.end(JSON.stringify({ components: { main: { remoteControlStatus: { remoteControlEnabled: { value: true } }, [capability]: { operatingState: { value: operatingState }, switch: { value: 'on' } } } } }));
   }
   if (url.pathname.endsWith('/commands')) {
     let body = ''; for await (const chunk of req) body += chunk;
     sent.push(JSON.parse(body));
     if (failCommand) { res.statusCode = 422; return res.end('{"error":"fixture rejected"}'); }
-    return res.end('{"results":[{"status":"ACCEPTED"}]}');
+    return res.end(JSON.stringify({ results: [{ status: resultStatus }] }));
   }
   res.statusCode = 404; res.end('{}');
 });
@@ -48,7 +50,9 @@ try {
   const devices = await (await fetch(`${base}/api/devices`)).json();
   assert.equal(devices.devices.find(d => d.id === 'light').state.switch, 'on', 'non-appliance live status loaded');
   for (const [id, capability] of fixtures.slice(0, 2)) {
-    assert.equal((await post(id, { action: 'appliance.start' })).status, 200);
+    const response = await post(id, { action: 'appliance.start' });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).outcome, 'unconfirmed');
     assert.deepEqual(sent.at(-1), { commands: [{ component: 'main', capability, command: 'start' }] });
   }
   assert.equal((await post('washer', { action: 'start' })).status, 400);
@@ -60,6 +64,11 @@ try {
   const failure = await post('dishwasher', { action: 'appliance.start' });
   assert.equal(failure.status, 502);
   assert.equal((await failure.json()).code, 'SMARTTHINGS_API_ERROR');
+  failCommand = false; resultStatus = 'FAILED';
+  assert.equal((await post('dishwasher', { action: 'appliance.start' })).status, 502, 'HTTP 200 with FAILED result is rejected');
+  resultStatus = 'ACCEPTED';
+  const power = await post('light', { action: 'switch.set', value: 'on' });
+  assert.equal((await power.json()).outcome, 'confirmed');
   console.log('PASS: real Next API → local SmartThings fixture: washer, dishwasher, live light status, malformed payload, changed definition, upstream rejection.');
 } finally {
   app.kill();

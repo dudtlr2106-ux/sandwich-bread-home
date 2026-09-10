@@ -53,10 +53,15 @@ export async function listSmartThingsRooms(locationId: string) {
 }
 
 export async function executeSmartThingsCommands(deviceId: string, commands: SmartThingsCommand[]) {
-  return request<unknown>(`/devices/${encodeURIComponent(deviceId)}/commands`, {
+  const result = await request<{ results?: Array<{ status?: string }> }>(`/devices/${encodeURIComponent(deviceId)}/commands`, {
     method: "POST",
     body: JSON.stringify({ commands }),
   });
+  if (!Array.isArray(result.results) || result.results.length !== commands.length ||
+      result.results.some((item) => item.status !== "ACCEPTED" && item.status !== "COMPLETED")) {
+    throw new SmartThingsApiError("SmartThings가 명령 실행을 승인하지 않았습니다. 장치 상태를 확인해주세요.");
+  }
+  return result;
 }
 
 export async function getSmartThingsCapability(id: string, version: number) {

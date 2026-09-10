@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DeviceCard from "@/components/DeviceCard";
-import type { DeviceCommand, HomeDevice, IoTMode } from "@/lib/types";
+import type { CommandResult, DeviceCommand, HomeDevice, IoTMode } from "@/lib/types";
 
 type CategoryKey = "all" | "light" | "thermostat" | "appliance" | "other";
 
@@ -26,6 +26,7 @@ export default function HomeDashboard() {
   const [mode, setMode] = useState<IoTMode>("mock");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [commandMessages, setCommandMessages] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string>();
   const [bulkBusy, setBulkBusy] = useState(false);
   const [category, setCategory] = useState<CategoryKey>("all");
@@ -73,17 +74,21 @@ export default function HomeDashboard() {
       body: JSON.stringify(payload),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error ?? `${device.label} 명령 전송에 실패했습니다.`);
+    if (!response.ok || data.ok === false) throw new Error(data.error ?? `${device.label} 명령 전송에 실패했습니다.`);
+    return data as CommandResult;
   }
 
   async function command(device: HomeDevice, payload: DeviceCommand) {
     setBusyId(device.id);
     setError(undefined);
     try {
-      await sendCommand(device, payload);
-      await load();
+      setCommandMessages((previous) => ({ ...previous, [device.id]: "명령 전송 및 상태 확인 중…" }));
+      const result = await sendCommand(device, payload);
+      if (result.device) setDevices((previous) => previous.map((item) => item.id === device.id ? result.device! : item));
+      else await load();
+      setCommandMessages((previous) => ({ ...previous, [device.id]: result.message }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "명령 전송에 실패했습니다.");
+      setCommandMessages((previous) => ({ ...previous, [device.id]: cause instanceof Error ? cause.message : "명령 전송에 실패했습니다." }));
     } finally {
       setBusyId(undefined);
     }
@@ -207,7 +212,8 @@ export default function HomeDashboard() {
                   <DeviceCard
                     key={device.id}
                     device={device}
-                    busy={bulkBusy || busyId === device.id || loading}
+                    busy={bulkBusy || Boolean(busyId) || loading}
+                    message={commandMessages[device.id]}
                     onCommand={(payload) => command(device, payload)}
                   />
                 ))}

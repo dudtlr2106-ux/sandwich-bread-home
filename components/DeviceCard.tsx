@@ -6,6 +6,7 @@ import type { DeviceCommand, HomeDevice, VentilationLevel } from "@/lib/types";
 type Props = {
   device: HomeDevice;
   busy: boolean;
+  message?: string;
   onCommand: (command: DeviceCommand) => Promise<void> | void;
 };
 
@@ -32,7 +33,7 @@ function operationLabel(value?: string) {
   return ({ ready: "준비", idle: "대기", running: "작동 중", run: "작동 중", paused: "일시정지", finished: "완료" } as Record<string, string>)[value] ?? value;
 }
 
-export default function DeviceCard({ device, busy, onCommand }: Props) {
+export default function DeviceCard({ device, busy, message, onCommand }: Props) {
   const [setpoint, setSetpoint] = useState(device.state.heatingSetpoint ?? 24);
   const isOn = device.state.switch === "on";
   const hasApplianceStart = device.kind === "appliance" && (
@@ -94,6 +95,16 @@ export default function DeviceCard({ device, busy, onCommand }: Props) {
       )}
 
       {hasApplianceStart && (
+        <div className="appliance-power">
+          <p>전원 <strong>{device.state.switch === "on" ? "켜짐" : device.state.switch === "off" ? "꺼짐" : "확인 중"}</strong></p>
+          {device.capabilities.switch && <div className="segmented-control" aria-label={`${device.label} 전원`}>
+            <button disabled={busy || !device.controllable || device.state.online === false} onClick={() => onCommand({ action: "switch.set", value: "on" })}>전원 켜기</button>
+            <button disabled={busy || !device.controllable || device.state.online === false} onClick={() => onCommand({ action: "switch.set", value: "off" })}>전원 끄기</button>
+          </div>}
+        </div>
+      )}
+
+      {hasApplianceStart && (
         <div className="appliance-control">
           <div className="appliance-status">
             <span>{operationLabel(device.state.operatingState)}</span>
@@ -127,6 +138,7 @@ export default function DeviceCard({ device, busy, onCommand }: Props) {
         <div className="disabled-note">{device.disabledReason ?? "현재 제어할 수 없는 장치입니다."}</div>
       )}
 
+      {message && <p className="device-detail" role="status">{message}</p>}
       {device.state.detail && <p className="device-detail">{device.state.detail}</p>}
     </article>
   );

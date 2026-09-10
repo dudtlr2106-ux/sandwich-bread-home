@@ -54,6 +54,8 @@ export type DeviceCommand =
 
 export type CommandResult = {
   ok: boolean;
+  outcome?: "confirmed" | "unconfirmed";
+  device?: HomeDevice;
   deviceId: string;
   command: DeviceCommand;
   message: string;
