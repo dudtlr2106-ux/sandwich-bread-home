@@ -21,6 +21,7 @@ export type HomeDeviceState = {
   fanSpeed?: number;
   ventilationLevel?: VentilationLevel;
   online?: boolean;
+  statusError?: string;
   detail?: string;
   remoteControlEnabled?: boolean;
   operatingState?: string;

@@ -248,6 +248,6 @@ export class MockAdapter implements IoTAdapter {
       device.state.operatingState = "running";
       device.state.progress = 0;
     }
-    return { ok: true, deviceId, command, message: "Mock command applied" };
+    return { ok: true, deviceId, command, outcome: "confirmed", device: cloneDevice(device), message: "모의 장치에 반영했습니다." };
   }
 }

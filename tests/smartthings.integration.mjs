@@ -6,6 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 // Real Next.js routes against a local SmartThings fixture. No real credentials or devices.
 const sent = [];
 let allowStart = true;
+let failWasherStatus = false;
 let failCommand = false;
 let resultStatus = "ACCEPTED";
 let operatingState = "ready";
@@ -22,6 +23,7 @@ const api = createServer(async (req, res) => {
   if (url.pathname.startsWith('/capabilities/')) return res.end(JSON.stringify({ commands: allowStart ? { start: { arguments: [] } } : {} }));
   if (url.pathname.endsWith('/status')) {
     const id = url.pathname.split('/')[2];
+    if (id === 'washer' && failWasherStatus) { res.statusCode = 503; return res.end('{}'); }
     const capability = fixtures.find(([name]) => name === id)[1];
     return res.end(JSON.stringify({ components: { main: { remoteControlStatus: { remoteControlEnabled: { value: true } }, [capability]: { operatingState: { value: operatingState }, switch: { value: 'on' } } } } }));
   }
@@ -49,6 +51,13 @@ try {
   assert.ok(ready, 'Next server starts');
   const devices = await (await fetch(`${base}/api/devices`)).json();
   assert.equal(devices.devices.find(d => d.id === 'light').state.switch, 'on', 'non-appliance live status loaded');
+  failWasherStatus = true;
+  const partial = await (await fetch(`${base}/api/devices`)).json();
+  assert.equal(partial.devices.length, 3);
+  assert.equal(partial.devices.find(d => d.id === 'washer').controllable, false);
+  assert.ok(partial.devices.find(d => d.id === 'washer').state.statusError);
+  assert.equal(partial.devices.find(d => d.id === 'light').state.switch, 'on');
+  failWasherStatus = false;
   for (const [id, capability] of fixtures.slice(0, 2)) {
     const response = await post(id, { action: 'appliance.start' });
     assert.equal(response.status, 200);

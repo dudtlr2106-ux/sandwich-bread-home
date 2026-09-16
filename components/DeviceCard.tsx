@@ -7,6 +7,8 @@ type Props = {
   device: HomeDevice;
   busy: boolean;
   message?: string;
+  favorite?: boolean;
+  onFavorite?: () => void;
   onCommand: (command: DeviceCommand) => Promise<void> | void;
 };
 
@@ -33,8 +35,10 @@ function operationLabel(value?: string) {
   return ({ ready: "준비", idle: "대기", running: "작동 중", run: "작동 중", paused: "일시정지", finished: "완료" } as Record<string, string>)[value] ?? value;
 }
 
-export default function DeviceCard({ device, busy, message, onCommand }: Props) {
-  const [setpoint, setSetpoint] = useState(device.state.heatingSetpoint ?? 24);
+export default function DeviceCard({ device, busy, message, favorite, onFavorite, onCommand }: Props) {
+  const [draft, setDraft] = useState<string>();
+  const setpoint = draft ?? String(device.state.heatingSetpoint ?? 24);
+  const validSetpoint = setpoint.trim() !== "" && Number.isFinite(Number(setpoint)) && Number(setpoint) >= 5 && Number(setpoint) <= 40;
   const isOn = device.state.switch === "on";
   const hasApplianceStart = device.kind === "appliance" && (
     device.capabilities.raw.includes("samsungce.washerOperatingState") ||
@@ -51,8 +55,12 @@ export default function DeviceCard({ device, busy, message, onCommand }: Props) 
           <div className="device-meta"><span>{kindLabel[device.kind]}</span><span>·</span><span>{device.source}</span></div>
           <h3>{device.label}</h3>
         </div>
-        <span className={`online-dot ${device.state.online === false ? "offline" : ""}`} title={device.state.online === undefined ? "연결 상태 미확인" : device.state.online ? "온라인" : "오프라인"} />
+        {onFavorite && <button className={`favorite-button ${favorite ? "selected" : ""}`} aria-label={`${device.label} 즐겨찾기`} aria-pressed={Boolean(favorite)} onClick={onFavorite}>{favorite ? "★" : "☆"}</button>}
+
       </div>
+
+      <div className="connection-label"><span className={`online-dot ${device.state.online === true ? "" : "offline"}`} />{device.state.statusError ? "조회 실패" : device.state.online === true ? "온라인" : device.state.online === false ? "오프라인" : "연결 상태 미확인"}</div>
+      {device.state.statusError && <p className="device-detail">{device.state.statusError}</p>}
 
       {device.kind === "thermostat" && (
         <div className="thermostat-panel">
@@ -70,10 +78,10 @@ export default function DeviceCard({ device, busy, message, onCommand }: Props) 
                 max={40}
                 step={0.5}
                 value={setpoint}
-                disabled={busy || !device.controllable}
-                onChange={(event) => setSetpoint(Number(event.target.value))}
+                disabled={busy || !device.controllable || device.state.online === false}
+                onChange={(event) => setDraft(event.target.value)}
               />
-              <button disabled={busy || !device.controllable} onClick={() => onCommand({ action: "heating.setSetpoint", value: setpoint })}>적용</button>
+              <button disabled={busy || !device.controllable || device.state.online === false || !validSetpoint} onClick={async () => { await onCommand({ action: "heating.setSetpoint", value: Number(setpoint) }); setDraft(undefined); }}>적용</button>
             </div>
           </div>
         </div>
@@ -84,7 +92,7 @@ export default function DeviceCard({ device, busy, message, onCommand }: Props) 
           {(["off", "low", "medium", "high"] as VentilationLevel[]).map((level) => (
             <button
               key={level}
-              disabled={busy || !device.controllable}
+              disabled={busy || !device.controllable || device.state.online === false}
               className={device.state.ventilationLevel === level ? "selected" : ""}
               onClick={() => onCommand({ action: "ventilation.setLevel", value: level })}
             >
@@ -123,10 +131,10 @@ export default function DeviceCard({ device, busy, message, onCommand }: Props) 
 
       {(device.kind === "light" || device.kind === "outlet" || device.kind === "thermostat") && device.capabilities.switch && (
         <div className="switch-row">
-          <span>{isOn ? "켜짐" : "꺼짐"}</span>
+          <span>{device.state.switch === undefined ? "전원 상태 미확인" : isOn ? "켜짐" : "꺼짐"}</span>
           <button
             className={`toggle ${isOn ? "on" : ""}`}
-            disabled={busy || !device.controllable}
+            disabled={busy || !device.controllable || device.state.online === false}
             onClick={() => onCommand({ action: "switch.set", value: isOn ? "off" : "on" })}
             aria-label={`${device.label} ${isOn ? "끄기" : "켜기"}`}
             aria-pressed={isOn}

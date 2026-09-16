@@ -20,16 +20,28 @@ export class SmartThingsAdapter implements IoTAdapter {
     const locationIds = Array.from(new Set(devices.map((device) => device.locationId).filter((id): id is string => Boolean(id))));
     const roomGroups = await Promise.all(
       locationIds.map(async (locationId) => {
-        const rooms = await listSmartThingsRooms(locationId);
-        return rooms.map((room) => [room.roomId, room.name] as const);
+        try {
+          const rooms = await listSmartThingsRooms(locationId);
+          return rooms.map((room) => [room.roomId, room.name] as const);
+        } catch {
+          await writeLog("warn", "rooms.list", "방 이름을 불러오지 못했습니다.", { locationId });
+          return [];
+        }
       }),
     );
     const roomNameById = new Map(roomGroups.flat());
 
     return Promise.all(
       devices.map(async (device) => {
-        const status = await getSmartThingsDeviceStatus(device.deviceId);
-        return normalizeSmartThingsDevice(device, roomNameById, status);
+        try {
+          const status = await getSmartThingsDeviceStatus(device.deviceId);
+          return normalizeSmartThingsDevice(device, roomNameById, status);
+        } catch {
+          await writeLog("warn", "device.status", "장치 상태 조회 실패", { deviceId: device.deviceId });
+          const normalized = normalizeSmartThingsDevice(device, roomNameById);
+          return { ...normalized, state: { statusError: "상태를 불러오지 못했습니다. 새로고침해주세요." },
+            controllable: false, disabledReason: "현재 상태를 확인한 뒤 제어할 수 있습니다." };
+        }
       }),
     );
   }
