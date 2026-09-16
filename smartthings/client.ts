@@ -1,11 +1,11 @@
 import "server-only";
+import { accessToken, oauthEnabled } from "./oauth";
 import type { SmartThingsCommand, SmartThingsDevice, SmartThingsRoom, SmartThingsStatus } from "@/smartthings/types";
 
 export class SmartThingsApiError extends Error {}
 
-function config() {
-  const token = process.env.SMARTTHINGS_TOKEN;
-  if (!token) throw new Error("SMARTTHINGS_TOKEN is missing. Keep it in a server-only environment variable.");
+async function config() {
+  const token = await accessToken();
 
   return {
     token,
@@ -14,8 +14,8 @@ function config() {
 }
 
 async function request<T>(pathname: string, init?: RequestInit): Promise<T> {
-  const { token, baseUrl } = config();
-  const response = await fetch(`${baseUrl}${pathname}`, {
+  let { token, baseUrl } = await config();
+  const send = () => fetch(`${baseUrl}${pathname}`, {
     ...init,
     cache: "no-store",
     signal: AbortSignal.timeout(15000),
@@ -26,6 +26,14 @@ async function request<T>(pathname: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   });
+
+  let response = await send();
+  if (response.status === 401 && oauthEnabled()) {
+    await response.body?.cancel();
+    token = await accessToken(token);
+    // Only an explicit authorization rejection is retried, never a timeout or 5xx command.
+    response = await send();
+  }
 
   if (!response.ok) {
     if (response.status === 401) throw new SmartThingsApiError("SmartThings 인증이 만료되었거나 유효하지 않습니다. 서버의 연결 토큰을 갱신해야 합니다. (401)");

@@ -1,0 +1,13 @@
+{
+  "appName": "sandwich-bread-home-oauth",
+  "appType": "API_ONLY",
+  "classifications": ["CONNECTED_SERVICE"],
+  "displayName": "우리집",
+  "description": "우리집 가전 상태 조회와 제어",
+  "singleInstance": true,
+  "oauth": {
+    "clientName": "우리집",
+    "scope": ["r:devices:*", "x:devices:*", "r:locations:*"],
+    "redirectUris": ["https://sandwich-bread-home.vercel.app/api/oauth/callback"]
+  }
+}

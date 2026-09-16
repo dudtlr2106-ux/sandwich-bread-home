@@ -39,6 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <InstallAppButton />
               <Link href="/">홈</Link>
               <Link href="/logs">로그</Link>
+              <Link href="/connect">연결</Link>
             </nav>
           </header>
           <main>{children}</main>
