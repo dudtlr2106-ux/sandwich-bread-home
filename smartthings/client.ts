@@ -28,6 +28,8 @@ async function request<T>(pathname: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
+    if (response.status === 401) throw new SmartThingsApiError("SmartThings 인증이 만료되었거나 유효하지 않습니다. 서버의 연결 토큰을 갱신해야 합니다. (401)");
+    if (response.status === 403) throw new SmartThingsApiError("SmartThings 접근 권한이 없습니다. 연결 토큰의 장치 조회·제어 권한을 확인해주세요. (403)");
     const body = await response.text();
     throw new SmartThingsApiError(`SmartThings API ${response.status}: ${body.replaceAll(token, "[redacted]").slice(0, 500)}`);
   }

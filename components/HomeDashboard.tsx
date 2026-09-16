@@ -207,7 +207,7 @@ export default function HomeDashboard() {
         </div>
         <div className={`mode-badge ${mode === "mock" ? "mock" : "live"}`}>
           <span className="status-dot" />
-          {mode === undefined ? "연결 확인 중" : mode === "mock" ? "모의 체험" : "SmartThings 연결"}
+          {stale ? "연결 확인 실패" : mode === undefined ? "연결 확인 중" : mode === "mock" ? "모의 체험" : "SmartThings 연결"}
         </div>
       </section>
 
@@ -239,7 +239,7 @@ export default function HomeDashboard() {
         <button className={`filter-button ${favoritesOnly ? "selected" : ""}`} aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly(!favoritesOnly)}>★ 즐겨찾기만</button>
         <button className="refresh-button" disabled={loading || bulkBusy || Boolean(busyId)} onClick={() => void load()}>{loading ? "상태 확인 중…" : "상태 새로고침"}</button>
         <label className="auto-refresh"><input type="checkbox" checked={autoRefresh} onChange={event => setAutoRefresh(event.target.checked)} />1분마다 갱신</label>
-        <small className="last-updated">{updatedAt ? `마지막 목록 확인 ${updatedAt}` : "아직 상태를 확인하지 못했습니다."}{stale ? " · 이전 정보 표시 중" : ""}</small>
+        <small className="last-updated">{updatedAt ? `마지막 목록 확인 ${updatedAt}` : "아직 상태를 확인하지 못했습니다."}{stale && updatedAt ? " · 이전 정보 표시 중" : ""}</small>
       </section>
 
       <section className="category-panel" aria-label="장치 카테고리">
@@ -259,7 +259,7 @@ export default function HomeDashboard() {
       </section>
 
       {error && <div className="alert" role="alert">{error}{stale && devices.length > 0 && " 이전 상태를 표시하고 있습니다. 새로고침 성공 후 제어할 수 있습니다."}</div>}
-      {!loading && filteredDevices.length === 0 && <div className="empty-state">
+      {!loading && !error && filteredDevices.length === 0 && <div className="empty-state">
         <h2>{query || favoritesOnly ? "조건에 맞는 장치가 없습니다" : "아직 연결된 장치가 없습니다"}</h2>
         <p>{favoritesOnly ? "장치 카드의 별을 누르면 이 브라우저에 즐겨찾기로 저장됩니다." : query ? "장치 이름이나 방 이름을 바꿔 검색해주세요." : "SmartThings에 장치를 연결하면 이곳에 표시됩니다. KOCOM 조명·난방은 월패드와 별도 연동이 필요합니다."}</p>
         {(query || favoritesOnly) && <button className="refresh-button" onClick={() => { setQuery(""); setFavoritesOnly(false); }}>필터 초기화</button>}

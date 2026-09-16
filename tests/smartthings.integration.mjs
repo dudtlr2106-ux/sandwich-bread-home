@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const sent = [];
 let allowStart = true;
 let failWasherStatus = false;
+let unauthorized = false;
 let failCommand = false;
 let resultStatus = "ACCEPTED";
 let operatingState = "ready";
@@ -19,6 +20,7 @@ const api = createServer(async (req, res) => {
   assert.equal(req.headers.authorization, 'Bearer integration-test-token');
   const url = new URL(req.url, 'http://localhost');
   res.setHeader('Content-Type', 'application/json');
+  if (unauthorized) { res.statusCode = 401; return res.end('<html>Authorization Required</html>'); }
   if (url.pathname === '/devices') return res.end(JSON.stringify({ items: fixtures.map(([id, capability]) => ({ deviceId: id, name: id, health: { state: 'ONLINE' }, components: [{ id: 'main', capabilities: [{ id: capability, version: 1 }] }] })) }));
   if (url.pathname.startsWith('/capabilities/')) return res.end(JSON.stringify({ commands: allowStart ? { start: { arguments: [] } } : {} }));
   if (url.pathname.endsWith('/status')) {
@@ -78,6 +80,13 @@ try {
   resultStatus = 'ACCEPTED';
   const power = await post('light', { action: 'switch.set', value: 'on' });
   assert.equal((await power.json()).outcome, 'confirmed');
+  unauthorized = true;
+  const denied = await fetch(`${base}/api/devices`);
+  assert.equal(denied.status, 500);
+  const deniedBody = await denied.json();
+  assert.match(deniedBody.error, /401/);
+  assert.ok(!deniedBody.error.includes('<html>'));
+  assert.ok(!deniedBody.error.includes('integration-test-token'));
   console.log('PASS: real Next API → local SmartThings fixture: washer, dishwasher, live light status, malformed payload, changed definition, upstream rejection.');
 } finally {
   app.kill();
